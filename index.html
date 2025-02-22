@@ -81,10 +81,12 @@ body {
     z-index: 1000;
     top: 100%;
     left: 0;
+    transition: opacity 0.1s ease-out;
 }
 
 .dropdown.active .dropdown-content {
     display: block;
+    opacity: 1;
 }
 
 .eraser-dropdown .dropdown-content {
@@ -395,9 +397,38 @@ body {
 
     .dropdown-content {
         position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 300px;
+        z-index: 2000;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .color-palette {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .color-option {
+        width: 100%;
+        padding-bottom: 100%; /* Makes it square */
+        height: 0;
+        position: relative;
+    }
+
+    .color-option::after {
+        content: '';
+        position: absolute;
+        top: 0;
         left: 0;
         right: 0;
-        margin: 0 8px;
+        bottom: 0;
+        border-radius: 50%;
+        background: inherit;
     }
 }
 
@@ -571,6 +602,31 @@ body {
 .popup-btn-cancel {
     background-color: #6c757d;
     color: white;
+}
+
+/* Add overlay for mobile */
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1500;
+}
+
+.mobile-overlay.active {
+    display: block;
+}
+
+/* Add these CSS rules to ensure smooth transitions */
+.dropdown-content {
+    transition: opacity 0.1s ease-out;
+}
+
+.dropdown.active .dropdown-content {
+    opacity: 1;
 }
 
     </style>
@@ -1506,24 +1562,13 @@ body {
     
     // Color picker functionality
     colorOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            currentColor = option.style.backgroundColor;
-            colorPreview.style.backgroundColor = currentColor;
-            colorOptions.forEach(opt => opt.classList.remove('active'));
-            option.classList.add('active');
-            updateCursor();
-        });
+        option.addEventListener('click', handleColorSelection);
+        option.addEventListener('touchend', handleColorSelection);
     });
     
-    // Neon color picker functionality
     neonColorOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            currentNeonColor = option.style.backgroundColor;
-            neonPreview.style.backgroundColor = currentNeonColor;
-            neonColorOptions.forEach(opt => opt.classList.remove('active'));
-            option.classList.add('active');
-            updateCursor();
-        });
+        option.addEventListener('click', handleNeonColorSelection);
+        option.addEventListener('touchend', handleNeonColorSelection);
     });
     
     // Tool buttons
@@ -1553,12 +1598,15 @@ body {
         button.addEventListener('click', (e) => {
             const dropdown = button.closest('.dropdown');
             if (dropdown) {
-                dropdown.classList.toggle('active');
-                document.querySelectorAll('.dropdown').forEach(otherDropdown => {
-                    if (otherDropdown !== dropdown) {
-                        otherDropdown.classList.remove('active');
+                const wasActive = dropdown.classList.contains('active');
+                closeAllDropdowns();
+                
+                if (!wasActive) {
+                    dropdown.classList.add('active');
+                    if (window.innerWidth <= 768) {
+                        document.querySelector('.mobile-overlay').classList.add('active');
                     }
-                });
+                }
             }
         });
     });
@@ -1585,6 +1633,7 @@ body {
         neonPreview.style.backgroundColor = currentNeonColor;
         colorOptions[0].classList.add('active');
         neonColorOptions[0].classList.add('active');
+        initializeColorPickers();
     }
     
     // Initialize the whiteboard
@@ -1741,11 +1790,8 @@ colorOptions.forEach(option => {
             // Add active class to clicked/touched option
             this.classList.add('active');
             
-            // Force dropdown to stay open on mobile
-            const dropdown = this.closest('.dropdown');
-            if (dropdown) {
-                dropdown.classList.add('active');
-            }
+            // Close dropdown immediately for both mobile and desktop
+            setTimeout(closeAllDropdowns, 50);
             
             updateCursor();
         });
@@ -1767,11 +1813,8 @@ neonColorOptions.forEach(option => {
             // Add active class to clicked/touched option
             this.classList.add('active');
             
-            // Force dropdown to stay open on mobile
-            const dropdown = this.closest('.dropdown');
-            if (dropdown) {
-                dropdown.classList.add('active');
-            }
+            // Close dropdown immediately for both mobile and desktop
+            setTimeout(closeAllDropdowns, 50);
             
             updateCursor();
         });
@@ -1861,6 +1904,61 @@ document.head.appendChild(style);
         setTimeout(() => {
             popup.style.display = 'none';
         }, 300);
+    }
+
+    // Update the JavaScript color picker functionality
+    function initializeColorPickers() {
+        const mobileOverlay = document.createElement('div');
+        mobileOverlay.className = 'mobile-overlay';
+        document.body.appendChild(mobileOverlay);
+
+        colorOptions.forEach(option => {
+            option.addEventListener('click', handleColorSelection);
+            option.addEventListener('touchend', handleColorSelection);
+        });
+
+        neonColorOptions.forEach(option => {
+            option.addEventListener('click', handleNeonColorSelection);
+            option.addEventListener('touchend', handleNeonColorSelection);
+        });
+
+        mobileOverlay.addEventListener('click', closeAllDropdowns);
+        mobileOverlay.addEventListener('touchend', closeAllDropdowns);
+    }
+
+    function handleColorSelection(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        currentColor = this.style.backgroundColor;
+        colorPreview.style.backgroundColor = currentColor;
+        colorOptions.forEach(opt => opt.classList.remove('active'));
+        this.classList.add('active');
+        updateCursor();
+        
+        // Close dropdown immediately for both mobile and desktop
+        setTimeout(closeAllDropdowns, 50);
+    }
+
+    function handleNeonColorSelection(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        currentNeonColor = this.style.backgroundColor;
+        neonPreview.style.backgroundColor = currentNeonColor;
+        neonColorOptions.forEach(opt => opt.classList.remove('active'));
+        this.classList.add('active');
+        updateCursor();
+        
+        // Close dropdown immediately for both mobile and desktop
+        setTimeout(closeAllDropdowns, 50);
+    }
+
+    function closeAllDropdowns() {
+        document.querySelectorAll('.dropdown').forEach(dropdown => {
+            dropdown.classList.remove('active');
+        });
+        document.querySelector('.mobile-overlay').classList.remove('active');
     }
 
     </script>
