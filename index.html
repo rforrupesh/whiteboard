@@ -681,10 +681,26 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    position: relative;
 }
 
 .thumbnail-menu-item:hover {
     background: #444;
+}
+
+.thumbnail-menu-item span {
+    flex-grow: 1;
+}
+
+.thumbnail-menu-item .success-icon {
+    color: #4CAF50;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    margin-left: auto;
+}
+
+.thumbnail-menu-item.success .success-icon {
+    opacity: 1;
 }
 
 @media (hover: none) {
@@ -696,6 +712,12 @@ body {
     .thumbnail-menu-item {
         padding: 12px 16px;
     }
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
     </style>
@@ -1184,11 +1206,11 @@ body {
     function updateThumbnails() {
         thumbnailContainer.innerHTML = "";
         pages.forEach((page, index) => {
-            // Create wrapper
-            const thumbnailWrapper = document.createElement("div");
-            thumbnailWrapper.className = "thumbnail-wrapper";
-            
-            // Create thumbnail canvas
+            // Create main container
+            const wrapper = document.createElement("div");
+            wrapper.className = "thumbnail-wrapper";
+
+            // Create thumbnail
             const thumbnail = document.createElement("canvas");
             thumbnail.width = 150;
             thumbnail.height = 84;
@@ -1197,52 +1219,6 @@ body {
                 thumbnail.classList.add("active");
             }
 
-            // Create menu button
-            const menuBtn = document.createElement("button");
-            menuBtn.className = "thumbnail-menu-btn";
-            menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
-            
-            // Create menu content
-            const menuContent = document.createElement("div");
-            menuContent.className = "thumbnail-menu-content";
-            
-            // Create background color button
-            const bgColorBtn = document.createElement("button");
-            bgColorBtn.className = "thumbnail-menu-item";
-            bgColorBtn.innerHTML = '<i class="fas fa-fill-drip"></i> Background Color';
-            
-            // Add menu button click handler
-            menuBtn.onclick = function(e) {
-                e.stopPropagation();
-                // Close all other menus
-                document.querySelectorAll('.thumbnail-menu-content').forEach(menu => {
-                    menu.classList.remove('active');
-                });
-                // Toggle this menu
-                menuContent.classList.toggle('active');
-            };
-            
-            // Add background color button click handler
-            bgColorBtn.onclick = function(e) {
-                e.stopPropagation();
-                const colorPicker = document.createElement("input");
-                colorPicker.type = "color";
-                colorPicker.value = "#ffffff";
-                
-                colorPicker.onchange = function() {
-                    const selectedColor = this.value;
-                    changePageBackground(index, selectedColor);
-                    menuContent.classList.remove('active');
-                };
-                
-                colorPicker.click();
-            };
-            
-            // Add thumbnail click handler
-            thumbnail.onclick = function() {
-                goToPage(index);
-            };
-            
             // Draw thumbnail content
             const thumbCtx = thumbnail.getContext("2d");
             thumbCtx.fillStyle = "white";
@@ -1250,39 +1226,89 @@ body {
             
             if (page) {
                 const img = new Image();
-                img.onload = function() {
+                img.onload = () => {
                     thumbCtx.drawImage(img, 0, 0, thumbnail.width, thumbnail.height);
                 };
                 img.src = typeof page === 'string' ? page : page.canvasData;
             }
-            
+
+            // Create menu button
+            const menuBtn = document.createElement("button");
+            menuBtn.className = "thumbnail-menu-btn";
+            menuBtn.innerHTML = '<i class="fas fa-ellipsis-v"></i>';
+
+            // Create menu dropdown
+            const menu = document.createElement("div");
+            menu.className = "thumbnail-menu-content";
+
+            // Create background color option
+            const bgColorOption = document.createElement("button");
+            bgColorOption.className = "thumbnail-menu-item";
+            bgColorOption.innerHTML = `
+                <i class="fas fa-fill-drip"></i>
+                <span>Change Background</span>
+                <i class="fas fa-check success-icon"></i>
+            `;
+
+            // Add click handlers
+            thumbnail.onclick = () => goToPage(index);
+
+            menuBtn.onclick = (e) => {
+                e.stopPropagation();
+                // Close all other menus
+                const allMenus = document.querySelectorAll('.thumbnail-menu-content');
+                allMenus.forEach(m => {
+                    if (m !== menu) m.classList.remove('active');
+                });
+                menu.classList.toggle('active');
+            };
+
+            bgColorOption.onclick = (e) => {
+                e.stopPropagation();
+                const input = document.createElement('input');
+                input.type = 'color';
+                input.value = '#ffffff';
+                
+                input.onchange = () => {
+                    changePageBackground(index, input.value);
+                    // Show success animation
+                    bgColorOption.classList.add('success');
+                    setTimeout(() => {
+                        bgColorOption.classList.remove('success');
+                        menu.classList.remove('active');
+                    }, 1000);
+                };
+                
+                input.click();
+            };
+
             // Assemble the components
-            menuContent.appendChild(bgColorBtn);
-            thumbnailWrapper.appendChild(thumbnail);
-            thumbnailWrapper.appendChild(menuBtn);
-            thumbnailWrapper.appendChild(menuContent);
-            thumbnailContainer.appendChild(thumbnailWrapper);
+            menu.appendChild(bgColorOption);
+            wrapper.appendChild(thumbnail);
+            wrapper.appendChild(menuBtn);
+            wrapper.appendChild(menu);
+            thumbnailContainer.appendChild(wrapper);
         });
     }
     
     function changePageBackground(pageIndex, color) {
         const currentPageIndex = currentPage;
         
-        // Switch to the target page
+        // Switch to target page
         goToPage(pageIndex);
         
-        // Fill with new background color
+        // Fill background
         ctx.fillStyle = color;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Redraw the content
+        // Redraw content if exists
         if (pages[pageIndex]) {
             const img = new Image();
-            img.onload = function() {
+            img.onload = () => {
                 ctx.drawImage(img, 0, 0);
                 saveState();
                 
-                // Return to original page if different
+                // Return to original page
                 if (currentPageIndex !== pageIndex) {
                     goToPage(currentPageIndex);
                 }
@@ -1568,8 +1594,6 @@ body {
         activeTextBox = null;
         
         document.removeEventListener('mousemove', moveTextBox);
-        document.removeEventListener('mouseup', stopDragging);
-        document.removeEventListener('dblclick', setFinalPosition);
     }
     
     // Event Listeners
